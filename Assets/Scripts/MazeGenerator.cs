@@ -16,6 +16,8 @@ public class MazeGenerator : MonoBehaviour
 
     public GameObject enemy;
 
+    public GameObject coin;
+
     const int N = 1;
     const int E = 2;
     const int S = 4;
@@ -62,7 +64,6 @@ public class MazeGenerator : MonoBehaviour
         }
         return list;
     }
-
 
     private void MakeMaze()
     {
@@ -129,7 +130,14 @@ public class MazeGenerator : MonoBehaviour
                 tile.GetComponentInChildren<NavMeshSurface>().BuildNavMesh();
 
                 // Skip to next i/j values if current tile is the player spawn tile
-                if (i != 0 && j != 0) continue;
+                if (i == 0 && j == 0) continue;
+
+                // Spawn coins
+                float x = j * tile_size + tile_size / 2f;
+                float z = i * tile_size + tile_size / 2f;
+                Vector3 coinSpawnPos = new Vector3(x, 1f, z);
+
+                Instantiate(coin, coinSpawnPos, Quaternion.identity);
 
                 // Spawn enemies 
                 if (enemiesSpawned < enemyCount)
@@ -139,7 +147,12 @@ public class MazeGenerator : MonoBehaviour
 
                     if(UnityEngine.Random.value < spawnChance)
                     {
-                        Vector3 spawnPos = new Vector3(j * tile_size, 1f, i * tile_size);
+                        // Find the floor child
+                        Transform floor = tile.transform.Find("Floor");
+
+                        // Get the Y position of the floor
+                        float floorY = floor.position.y;
+                        Vector3 spawnPos = new Vector3(j * tile_size, floorY + 0.5f, i * tile_size);
                         Instantiate(enemy, spawnPos, Quaternion.identity);
                         enemiesSpawned++;
                     }
@@ -148,7 +161,37 @@ public class MazeGenerator : MonoBehaviour
 
         }
 
+        SpawnEnemiesGuaranteed();
+
     }
 
-    
+    private void SpawnEnemiesGuaranteed()
+    {
+        // Collect valid tiles (skip player tile at (0,0) or whichever you want)
+        List<Vector2Int> allTiles = new List<Vector2Int>();
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                if (i == 0 && j == 0) continue; // Skip player spawn tile
+                allTiles.Add(new Vector2Int(i, j));
+            }
+        }
+
+        // Shuffle tiles
+        for (int k = 0; k < allTiles.Count; k++)
+        {
+            int r = UnityEngine.Random.Range(k, allTiles.Count);
+            (allTiles[k], allTiles[r]) = (allTiles[r], allTiles[k]);
+        }
+
+        // Spawn exactly enemyCount enemies on the first N shuffled tiles
+        for (int e = 0; e < enemyCount; e++)
+        {
+            Vector2Int pos = allTiles[e];
+            Vector3 world = new Vector3(pos.y * tile_size, 1f, pos.x * tile_size);
+            Instantiate(enemy, world, Quaternion.identity);
+        }
+    }
+
 }
